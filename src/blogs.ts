@@ -40,6 +40,8 @@ export class BlogsService {
           },
         });
 
+        console.log('Fetch attempt', attempt, 'for URL:', url);
+
         clearTimeout(timeoutId);
 
         if (!response.ok) {
@@ -122,9 +124,6 @@ export class BlogsService {
       const post = await this.makeRequest<BlogPost>(url);
       return post;
     } catch (error) {
-      if (error instanceof BlogApiError && error.status === 404) {
-        return null;
-      }
       throw error;
     }
   }
