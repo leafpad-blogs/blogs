@@ -9,8 +9,8 @@ export class BlogsService {
   constructor(organizationSlug: string, blogsConfig?: BlogsConfigType) {
     this.config = {
       organizationSlug,
-      ...blogsConfig,
-      ...BLOG_CONFIG
+      ...BLOG_CONFIG,
+      ...blogsConfig
     }
   }
 
