@@ -1,3 +1,4 @@
+import { attachObserverToTOCLinks } from "./createToc.js";
 
 
 export default class BlogUtils {
@@ -36,5 +37,18 @@ export default class BlogUtils {
       return text.slice(0, maxLength) + '...';
     }
     return text;
+  }
+
+  static slugify(text: string): string {
+    return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters except spaces and hyphens
+    .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  }
+
+  static attachTocListener(tocId: string = 'toc') {
+    return attachObserverToTOCLinks(tocId);
   }
 }

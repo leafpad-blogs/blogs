@@ -1,4 +1,5 @@
 import BlogUtils from "./BlogUtils.js";
+import { renderTOCHTML } from "./createToc.js";
 import type { BlogTag, BlogPost } from "./types.js";
 
 export interface BlogPostHeaderProps {
@@ -47,7 +48,7 @@ export class BlogPostFormat {
   }
 
   static headerTitle({ title }: { title: string }) {
-    return `<h1 class="blog-post-title">${title}</h1>`;
+    return `<h1 class="blog-post-title" id="${BlogUtils.slugify(title)}">${title}</h1>`;
   }
 
   static headerDescription({ description }: { description: string | undefined }) {
@@ -129,6 +130,19 @@ export class BlogPostFormat {
         </div>`
   }
 
+  static blogPostWithToc({ post }: { post: BlogPost }) {
+    const htmlContent = this.completeBlogPost({ post });
+    const tocHtml = this.toc(post.tocItems);
+
+    return `<div class="blog-post-with-toc">
+        ${htmlContent}
+      <aside class="blog-post-toc" id="toc">
+        <h3 class="blog-post-toc-title">Table of Contents</h3>
+        <nav>${tocHtml}</nav>
+      </aside>
+    </div>`;
+  }
+
   static completeBlogPost({ post }: { post: BlogPost }) {
       const headerHtml = [
       BlogPostFormat.headerTitle({ title: post.name }),
@@ -140,9 +154,13 @@ export class BlogPostFormat {
       BlogPostFormat.headerImage({ image: post.seo?.image || "", title: post.name }),
     ].join("");
     return [
-      `<header class="blog-post-header">${headerHtml}</header>`,
+      `<div class="blogs-container"><header class="blog-post-header">${headerHtml}</header>`,
       BlogPostFormat.content({ htmlContent: post.htmlContent || "" }),
-      BlogPostFormat.tags({ tags: post.tags || [] }),
+      BlogPostFormat.tags({ tags: post.tags || [] })+"</div>",
     ].join("");
+  }
+
+  static toc(tocItems: { level: number; text: string; id: string }[]) {
+    return renderTOCHTML(tocItems)
   }
 }

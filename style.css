@@ -261,3 +261,54 @@ pre[class*="language-"] {
 .blog-post-author-organization {
   color: var(--b-muted);
 }
+
+/* TOC container basics */
+.toc-link { color: var(--b-muted); text-decoration: none; transition: color .15s ease, border-color .15s ease; border-left: 2px solid var(--b-border); padding: .25rem 0; }
+.toc-link:hover { color: var(--b-primary); border-left-color: var(--b-primary); }
+#toc .active { color: var(--b-primary); border-left-color: var(--b-primary); font-weight: 600; }
+
+/* Layout for pages with a Table of Contents */
+/* Supports both camelCase and kebab-case wrapper classes */
+.blog-post-with-toc {
+  display: grid;
+  grid-template-columns: 1fr; /* single column by default */
+  gap: 8px; /* 8px gap as requested */
+}
+
+/* Hide aside (toc) on small screens */
+.blog-post-with-toc aside {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .blog-post-with-toc {
+    grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
+  }
+
+  /* Article/content spans 3 of 4 columns */
+  .blog-post-with-toc .blogs-container {
+    grid-column: 1 / span 3;
+  }
+
+  /* TOC occupies the last column */
+  .blog-post-with-toc aside {
+    display: block;
+    grid-column: 4 / span 1;
+    align-self: start;
+  }
+}
+
+/* Make aside sticky and constrained so it fits below a top header of 56px */
+.blog-post-with-toc aside {
+  position: sticky;
+  top: 56px; /* offset from top as requested */
+  max-height: calc(100vh - 56px);
+  height: fit-content;
+  overflow: auto;
+}
+
+.blog-post-with-toc .blog-post-toc-title {
+  color: var(--b-primary);
+  font-size: var(--b-text-lg);
+  margin-bottom: 16px;
+}
