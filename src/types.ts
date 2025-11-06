@@ -93,6 +93,7 @@ export interface BlogPost {
   organization: BlogOrganization;
   content?: any;
   htmlContent?: string;
+  textContent?: string;
   tocItems: { level: number; text: string; id: string }[];
   createdByUser: {
     name: string;

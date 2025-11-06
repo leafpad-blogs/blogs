@@ -117,13 +117,19 @@ export class BlogPostFormat {
     return '<hr class="blog-post-divider" />';
   }
 
+  static blogCards({ posts, urlPrefix = "/blog" }: { posts: BlogPost[]; urlPrefix?: string }) {
+    return `<div class="blog-cards-container">
+      ${posts.map(post => this.blogCard({ post, urlPrefix })).join("")}
+    </div>`;
+  }
+
   static blogCard({post, urlPrefix = "/blog"}: {post: BlogPost, urlPrefix?: string}) {
     return `<div class="blog-card">
         <div class="image-container"> 
           ${BlogPostFormat.headerImage({image: post.seo?.image || "", title: post.name})}
         </div>
         <h4 class="post-title">${post.name}</h4>
-        <p class="post-excerpt">${post.seo?.description || 
+        <p class="post-excerpt">${post.seo?.description || post.textContent || 
                          (post.htmlContent ? BlogUtils.extractTextFromHtml(post.htmlContent, 150) : '')}</p>
         ${BlogPostFormat.headerMeta({author: post.createdByUser.name, date: BlogUtils.formatDate(post.createdAt), readTime: BlogUtils.calculateReadTime(post.htmlContent || "")})}
         <a href="${urlPrefix}/${post.slug}" class="btn btn-outline btn-sm">Read More</a>
