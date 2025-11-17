@@ -71,6 +71,19 @@ export interface BlogApiResponse {
   organization: BlogOrganization;
 }
 
+export type DocItem = {
+  id: number;
+  label: string;
+  path?: string;
+  children?: DocItem[];
+}
+
+export interface DocsResponse {
+  items: DocItem[];
+  pagination: BlogPagination;
+  organization: BlogOrganization;
+}
+
 // Fetch options
 export interface FetchPostsOptions {
   page?: number;
@@ -92,6 +105,7 @@ export interface BlogPost {
   tags: BlogTag[];
   organization: BlogOrganization;
   content?: any;
+  parentId?: number;
   htmlContent?: string;
   textContent?: string;
   tocItems: { level: number; text: string; id: string }[];

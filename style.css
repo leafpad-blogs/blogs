@@ -327,3 +327,25 @@ pre[class*="language-"] {
   font-size: var(--b-text-lg);
   margin-bottom: 16px;
 }
+
+.blogs-container table {
+  border-radius: 4px;
+  border-bottom: 1px solid var(--b-border);
+  margin: 32px 0px;
+  width: 100%;
+}
+
+.blogs-container table td, .blogs-container table th {
+  border-top: 1px solid var(--b-border);
+  padding: 16px 16px;
+}
+
+h4.post-title {
+  font-size: var(--text-xl);
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+
+.blogs-container table p {
+  margin-bottom: 0px
+}

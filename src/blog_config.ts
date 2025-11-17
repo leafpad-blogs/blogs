@@ -11,7 +11,7 @@ export type BlogsConfigType = {
 }
 
 export const BLOG_CONFIG = {
-  baseUrl: "https://blogsapp.smler.in",
+  baseUrl: "https://leafpad.io",
   apiPath: '/api/public/v1/post',
   defaultLimit: 10,
   maxPostsForFiltering: 50,

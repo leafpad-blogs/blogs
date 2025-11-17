@@ -1,5 +1,5 @@
 import { BLOG_CONFIG, type BlogsConfigType } from './blog_config.js';
-import type { BlogApiConfig, BlogPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse } from './types.js';
+import type { BlogApiConfig, BlogPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse, DocsResponse, DocItem } from './types.js';
 import BlogApiError from './BlogsError.js';
 import { attachObserverToTOCLinks } from './createToc.js';
 
@@ -80,10 +80,7 @@ export class BlogsService {
     throw new BlogApiError(`Failed after ${this.config.retries} attempts: ${lastError.message}`, undefined, 'MAX_RETRIES_EXCEEDED');
   }
 
-  /**
-   * Fetch multiple blog posts with pagination and filtering
-   */
-  async fetchPosts(options: FetchPostsOptions = {}): Promise<BlogApiResponse> {
+  private async fetchItems(options: FetchPostsOptions = {}): Promise<BlogApiResponse> {
     const {
       page = 1,
       limit = this.config.defaultLimit,
@@ -110,6 +107,60 @@ export class BlogsService {
 
     const url = this.buildUrl('', params);
     return this.makeRequest<BlogApiResponse>(url);
+  }
+
+  async fetchDocs(options: FetchPostsOptions = {}): Promise<DocsResponse> {
+    const blogsResponse = await this.fetchItems(options);
+
+    const inPlaceSort = (arr: DocItem[], compareFn: (a: any, b: any) => number) => {
+      arr.sort(compareFn)
+      arr.forEach(item => {
+        if(item.children && item.children.length > 0) {
+          inPlaceSort(item.children, compareFn)
+        }
+      })
+    }
+    // format response in docs format
+    // nest all blogsResponse.posts into children based on DocItem each item has parentId
+    const items: {
+      [key: number]: { id: number, label: string; path: string; children: DocItem[]; parentId?: number | undefined }
+    } = {}
+
+    blogsResponse.posts.forEach(post => {
+      items[post.id] = { id: post.id, label: post.name, path: `/docs/${post.slug}`, children: [], parentId: post.parentId };
+    })
+
+    blogsResponse.posts.forEach(post => {
+      if(post.parentId && items[post.id]) {
+        items[post.parentId]?.children
+          //@ts-ignore
+          .push(items[post.id]);
+      }
+    })
+
+    const docsItems = blogsResponse.posts.filter(post => !post.parentId).map(post => ({
+      id: post.id,
+      label: post.name,
+      path: `/docs/${post.slug}`,
+      children: items[post.id]?.children || []
+    }))
+
+    // sort all docs by id and all the deep nested children too
+    const sortItems = (a: any, b: any) => a.id - b.id > 0 ? 1 : -1;
+    inPlaceSort(docsItems, sortItems);
+
+    return {
+      items: docsItems,
+      pagination: blogsResponse.pagination,
+      organization: blogsResponse.organization
+    };
+  }
+
+  /**
+   * Fetch multiple blog posts with pagination and filtering
+   */
+  async fetchPosts(options: FetchPostsOptions = {}): Promise<BlogApiResponse> {
+    return this.fetchItems(options);
   }
 
   async fetchBlog(slug: string, options: FetchPostOptions = {}): Promise<BlogPost | null> {
