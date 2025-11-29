@@ -1,6 +1,6 @@
 import BlogUtils from "./BlogUtils.js";
 import { renderTOCHTML } from "./createToc.js";
-import type { BlogTag, BlogPost } from "./types.js";
+import type { BlogTag, BlogPost } from "../types/types.js";
 
 export interface BlogPostHeaderProps {
   title: string;

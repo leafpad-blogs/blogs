@@ -1,7 +1,7 @@
 import { BLOG_CONFIG, type BlogsConfigType } from './blog_config.js';
-import type { BlogApiConfig, BlogPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse, DocsResponse, DocItem } from './types.js';
+import type { BlogApiConfig, BlogPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse, DocsResponse, DocItem } from '../types/types.js';
 import BlogApiError from './BlogsError.js';
-import { attachObserverToTOCLinks } from './createToc.js';
+import { attachObserverToTOCLinks } from '../utils/createToc.js';
 
 export class BlogsService {
 
