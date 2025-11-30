@@ -117,13 +117,13 @@ export class BlogPostFormat {
     return '<hr class="blog-post-divider" />';
   }
 
-  static blogCards({ posts, urlPrefix = "/blog" }: { posts: BlogPost[]; urlPrefix?: string }) {
+  static blogCards({ posts, urlPrefix = "/blogs" }: { posts: BlogPost[]; urlPrefix?: string }) {
     return `<div class="blog-cards-container">
       ${posts.map(post => this.blogCard({ post, urlPrefix })).join("")}
     </div>`;
   }
 
-  static blogCard({post, urlPrefix = "/blog"}: {post: BlogPost, urlPrefix?: string}) {
+  static blogCard({post, urlPrefix = "/blogs"}: {post: BlogPost, urlPrefix?: string}) {
     return `<div class="blog-card">
         <div class="image-container"> 
           ${BlogPostFormat.headerImage({image: post.seo?.image || "", title: post.name})}

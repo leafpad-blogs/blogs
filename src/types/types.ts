@@ -91,6 +91,7 @@ export interface FetchPostsOptions {
   includeHtml?: boolean;
   tags?: string[];
   search?: string;
+  docs?: boolean;
 }
 
 export interface BlogPost {

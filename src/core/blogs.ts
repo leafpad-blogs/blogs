@@ -41,8 +41,6 @@ export class BlogsService {
           },
         });
 
-        console.log('Fetch attempt', attempt, 'for URL:', url);
-
         clearTimeout(timeoutId);
 
         if (!response.ok) {
@@ -86,7 +84,8 @@ export class BlogsService {
       limit = this.config.defaultLimit,
       includeHtml = true,
       tags = [],
-      search = ''
+      search = '',
+      docs = false
     } = options;
 
     const params = new URLSearchParams();
@@ -94,7 +93,7 @@ export class BlogsService {
     params.append('limit', limit.toString());
     
     if (includeHtml) {
-      params.append('html', 'true');
+      params.append('html', Boolean(includeHtml).toString());
     }
     
     if (tags.length > 0) {
@@ -105,12 +104,16 @@ export class BlogsService {
       params.append('search', search.trim());
     }
 
+    if (docs) {
+      params.append('docs', Boolean(docs).toString());
+    }
+
     const url = this.buildUrl('', params);
     return this.makeRequest<BlogApiResponse>(url);
   }
 
   async fetchDocs(options: FetchPostsOptions = {}): Promise<DocsResponse> {
-    const blogsResponse = await this.fetchItems(options);
+    const blogsResponse = await this.fetchItems({...options, docs: true });
 
     const inPlaceSort = (arr: DocItem[], compareFn: (a: any, b: any) => number) => {
       arr.sort(compareFn)
@@ -120,14 +123,13 @@ export class BlogsService {
         }
       })
     }
-    // format response in docs format
-    // nest all blogsResponse.posts into children based on DocItem each item has parentId
+
     const items: {
       [key: number]: { id: number, label: string; path: string; children: DocItem[]; parentId?: number | undefined }
     } = {}
 
     blogsResponse.posts.forEach(post => {
-      items[post.id] = { id: post.id, label: post.name, path: `/docs/${post.slug}`, children: [], parentId: post.parentId };
+      items[post.id] = { id: post.id, label: post.name, path: `${post.slug}`, children: [], parentId: post.parentId };
     })
 
     blogsResponse.posts.forEach(post => {
@@ -141,7 +143,7 @@ export class BlogsService {
     const docsItems = blogsResponse.posts.filter(post => !post.parentId).map(post => ({
       id: post.id,
       label: post.name,
-      path: `/docs/${post.slug}`,
+      path: `${post.slug}`,
       children: items[post.id]?.children || []
     }))
 
