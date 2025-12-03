@@ -1,7 +1,6 @@
 import { BLOG_CONFIG, type BlogsConfigType } from './blog_config.js';
 import type { BlogApiConfig, BlogPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse, DocsResponse, DocItem } from '../types/types.js';
 import BlogApiError from './BlogsError.js';
-import { attachObserverToTOCLinks } from '../utils/createToc.js';
 
 export class BlogsService {
 
@@ -143,12 +142,12 @@ export class BlogsService {
     const docsItems = blogsResponse.posts.filter(post => !post.parentId).map(post => ({
       id: post.id,
       label: post.name,
-      path: `${post.slug}`,
+      slug: post.slug,
       children: items[post.id]?.children || []
     }))
 
     // sort all docs by id and all the deep nested children too
-    const sortItems = (a: any, b: any) => a.id - b.id > 0 ? 1 : -1;
+    const sortItems = (a: BlogPost, b: BlogPost) => a.position.localeCompare(b.position);
     inPlaceSort(docsItems, sortItems);
 
     return {

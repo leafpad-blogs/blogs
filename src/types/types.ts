@@ -75,6 +75,7 @@ export type DocItem = {
   id: number;
   label: string;
   path?: string;
+  position?: number;
   children?: DocItem[];
 }
 
@@ -107,6 +108,7 @@ export interface BlogPost {
   organization: BlogOrganization;
   content?: any;
   parentId?: number;
+  position: string;
   htmlContent?: string;
   textContent?: string;
   tocItems: { level: number; text: string; id: string }[];
