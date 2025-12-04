@@ -75,7 +75,7 @@ export type DocItem = {
   id: number;
   label: string;
   path?: string;
-  position?: number;
+  position: string;
   children?: DocItem[];
 }
 

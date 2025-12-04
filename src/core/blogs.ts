@@ -124,11 +124,11 @@ export class BlogsService {
     }
 
     const items: {
-      [key: number]: { id: number, label: string; path: string; children: DocItem[]; parentId?: number | undefined }
+      [key: number]: { id: number, label: string; path: string; children: DocItem[]; parentId?: number | undefined, position: string }
     } = {}
 
     blogsResponse.posts.forEach(post => {
-      items[post.id] = { id: post.id, label: post.name, path: `${post.slug}`, children: [], parentId: post.parentId };
+      items[post.id] = { id: post.id, label: post.name, path: `${post.slug}`, children: [], parentId: post.parentId, position: post.position};
     })
 
     blogsResponse.posts.forEach(post => {
@@ -143,11 +143,23 @@ export class BlogsService {
       id: post.id,
       label: post.name,
       slug: post.slug,
+      position: post.position,
       children: items[post.id]?.children || []
-    }))
+    })).sort((a, b) => {
+      // sort top level items by position or id
+      if(a.position) {
+        return a.position.localeCompare(b.position)
+      }
+      return a.id - b.id
+    })
 
     // sort all docs by id and all the deep nested children too
-    const sortItems = (a: BlogPost, b: BlogPost) => a.position.localeCompare(b.position);
+    const sortItems = (a: BlogPost, b: BlogPost) => {
+      if(a.position) {
+        return a.position.localeCompare(b.position)
+      }
+      return a.id - b.id
+    };
     inPlaceSort(docsItems, sortItems);
 
     return {
