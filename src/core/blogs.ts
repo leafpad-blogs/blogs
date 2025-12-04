@@ -124,11 +124,11 @@ export class BlogsService {
     }
 
     const items: {
-      [key: number]: { id: number, label: string; path: string; children: DocItem[]; parentId?: number | undefined, position: string }
+      [key: number]: { id: number, label: string; slug: string; children: DocItem[]; parentId?: number | undefined, position: string }
     } = {}
 
     blogsResponse.posts.forEach(post => {
-      items[post.id] = { id: post.id, label: post.name, path: `${post.slug}`, children: [], parentId: post.parentId, position: post.position};
+      items[post.id] = { id: post.id, label: post.name, slug: `${post.slug}`, children: [], parentId: post.parentId, position: post.position};
     })
 
     blogsResponse.posts.forEach(post => {
