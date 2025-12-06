@@ -349,3 +349,12 @@ h4.post-title {
 .blogs-container table p {
   margin-bottom: 0px
 }
+
+.blog-post-toc a {
+  text-decoration: none;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  display: block;
+  white-space: nowrap;
+  line-height: 2;
+}

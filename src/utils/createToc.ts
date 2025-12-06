@@ -126,7 +126,7 @@ export function renderTOCHTML(
     const padding = (level - 1) * 12 + 8;
 
     parts.push(
-      `<a href="#${escapeHtml(id)}" class="${escapeHtml(linkClass)}" data-level="${level}" data-target-id="${escapeHtml(id)}" role="link" style="padding-left: ${padding}px; display:block; font-size:0.875rem; line-height:1.4">${addNumbers ? `${text}` : text}</a>`
+      `<a href="#${escapeHtml(id)}" class="${escapeHtml(linkClass)}" data-level="${level}" data-target-id="${escapeHtml(id)}" role="link" style="padding-left: ${padding}px;">${addNumbers ? `${text}` : text}</a>`
     );
   }
 
