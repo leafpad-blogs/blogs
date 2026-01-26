@@ -90,6 +90,7 @@ export interface FetchPostsOptions {
   page?: number;
   limit?: number;
   includeHtml?: boolean;
+  md?: boolean;
   tags?: string[];
   search?: string;
   docs?: boolean;
@@ -110,6 +111,7 @@ export interface BlogPost {
   parentId?: number;
   position: string;
   htmlContent?: string;
+  md?: string;
   textContent?: string;
   tocItems: { level: number; text: string; id: string }[];
   createdByUser: {
@@ -120,6 +122,7 @@ export interface BlogPost {
 
 export interface FetchPostOptions {
   includeHtml?: boolean;
+  md?: boolean;
 }
 
 export {};

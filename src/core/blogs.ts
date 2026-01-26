@@ -84,7 +84,8 @@ export class BlogsService {
       includeHtml = true,
       tags = [],
       search = '',
-      docs = false
+      docs = false,
+      md = false
     } = options;
 
     const params = new URLSearchParams();
@@ -93,6 +94,10 @@ export class BlogsService {
     
     if (includeHtml) {
       params.append('html', Boolean(includeHtml).toString());
+    }
+
+    if (md) {
+      params.append('md', Boolean(md).toString());
     }
     
     if (tags.length > 0) {
@@ -182,6 +187,10 @@ export class BlogsService {
     const params = new URLSearchParams();
     if (includeHtml) {
       params.append('html', 'true');
+    }
+
+    if(options.md) {
+      params.append('md', 'true');
     }
 
     try {

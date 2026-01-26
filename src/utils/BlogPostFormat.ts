@@ -132,7 +132,7 @@ export class BlogPostFormat {
         <p class="post-excerpt">${post.seo?.description || post.textContent || 
                          (post.htmlContent ? BlogUtils.extractTextFromHtml(post.htmlContent, 150) : '')}</p>
         ${BlogPostFormat.headerMeta({author: post.createdByUser.name, date: BlogUtils.formatDate(post.createdAt), readTime: BlogUtils.calculateReadTime(post.htmlContent || "")})}
-        <a href="${urlPrefix}/${post.slug}" class="btn btn-outline btn-sm">Read More</a>
+        <a href="${urlPrefix}/${post.slug}" aria-label="Read more about ${post.name}" class="btn btn-outline btn-sm">Read More</a>
         </div>`
   }
 
@@ -149,7 +149,15 @@ export class BlogPostFormat {
     </div>`;
   }
 
-  static completeBlogPost({ post }: { post: BlogPost }) {
+  static blogPost({ post, toc = false }: { post: BlogPost, toc?: boolean }) {
+    if (toc) {
+      return this.blogPostWithToc({ post });
+    } else {
+      return this.completeBlogPost({ post });
+    }
+  }
+
+  static completeBlogPost({ post, toc = false }: { post: BlogPost, toc?: boolean }) {
       const headerHtml = [
       BlogPostFormat.headerTitle({ title: post.name }),
       BlogPostFormat.headerDescription({ description: post.seo?.description || "" }),

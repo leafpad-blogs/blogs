@@ -1,5 +1,6 @@
 .blogs-container {
   width: 100%;
+  grid-column: 1 / span 4;
 }
 
 :root {
@@ -44,7 +45,8 @@ pre[class*="language-"] {
   border-radius: 8px;
   overflow-x: auto;
   margin: 1em 0;
-  border: 1px solid var(--b-border)
+  border: 1px solid var(--b-border);
+  text-wrap-mode: wrap;
 }
 
 .blogs-container hr {
@@ -271,7 +273,7 @@ pre[class*="language-"] {
 /* Supports both camelCase and kebab-case wrapper classes */
 .blog-post-with-toc {
   display: grid;
-  grid-template-columns: 1fr; /* single column by default */
+  grid-template-columns: repeat(4, 1fr); /* single column by default */
   gap: 8px; /* 8px gap as requested */
 }
 
@@ -287,9 +289,6 @@ pre[class*="language-"] {
 }
 
 @media (min-width: 768px) {
-  .blog-post-with-toc {
-    grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
-  }
 
   /* Article/content spans 3 of 4 columns */
   .blog-post-with-toc .blogs-container {
@@ -356,5 +355,7 @@ h4.post-title {
   overflow: hidden;
   display: block;
   white-space: nowrap;
-  line-height: 2;
+  line-height: 1.6;
+  font-size: 0.8rem;
+  color: var(--b-muted)
 }
