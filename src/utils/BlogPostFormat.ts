@@ -30,7 +30,36 @@ export interface BlogPostMetaProps {
   readTime: string;
 }
 
+export interface CompleteBlogPostItemsConfig {
+  title?: boolean;
+  description?: boolean;
+  meta?: boolean;
+  author?: boolean;
+  divider?: boolean;
+  image?: boolean;
+  content?: boolean;
+  tags?: boolean;
+}
+
+const DEFAULT_COMPLETE_BLOG_POST_ITEMS_CONFIG: Required<CompleteBlogPostItemsConfig> = {
+  title: true,
+  description: true,
+  meta: true,
+  author: true,
+  divider: true,
+  image: true,
+  content: true,
+  tags: true,
+};
+
 export class BlogPostFormat {
+  private static resolveCompleteBlogPostItemsConfig(config?: CompleteBlogPostItemsConfig): Required<CompleteBlogPostItemsConfig> {
+    return {
+      ...DEFAULT_COMPLETE_BLOG_POST_ITEMS_CONFIG,
+      ...config,
+    };
+  }
+
   static header({ title, description, image, tags, author, date, readTime }: BlogPostHeaderProps) {
     return `
       <header class="blog-post-header">
@@ -136,8 +165,8 @@ export class BlogPostFormat {
         </div>`
   }
 
-  static blogPostWithToc({ post }: { post: BlogPost }) {
-    const htmlContent = this.completeBlogPost({ post });
+  static blogPostWithToc({ post, config }: { post: BlogPost; config?: CompleteBlogPostItemsConfig | undefined }) {
+    const htmlContent = this.completeBlogPost({ post, config });
     const tocHtml = this.toc(post.tocItems);
 
     return `<div class="blog-post-with-toc">
@@ -149,28 +178,28 @@ export class BlogPostFormat {
     </div>`;
   }
 
-  static blogPost({ post, toc = false }: { post: BlogPost, toc?: boolean }) {
+  static blogPost({ post, toc = false, config }: { post: BlogPost; toc?: boolean; config?: CompleteBlogPostItemsConfig | undefined }) {
     if (toc) {
-      return this.blogPostWithToc({ post });
+      return this.blogPostWithToc({ post, config });
     } else {
-      return this.completeBlogPost({ post });
+      return this.completeBlogPost({ post, config });
     }
   }
 
-  static completeBlogPost({ post, toc = false }: { post: BlogPost, toc?: boolean }) {
-      const headerHtml = [
-      BlogPostFormat.headerTitle({ title: post.name }),
-      BlogPostFormat.headerDescription({ description: post.seo?.description || "" }),
-      BlogPostFormat.headerMeta({ author: post.createdByUser.name, date: BlogUtils.formatDate(post.updatedAt), readTime: BlogUtils.calculateReadTime(post.htmlContent || "") }),
-      BlogPostFormat.author({ author: post.createdByUser.name, organization: post.organization.name }),
-      // BlogPostFormat.headerTags({ tags }),
-      BlogPostFormat.divider(),
-      BlogPostFormat.headerImage({ image: post.seo?.image || "", title: post.name }),
+  static completeBlogPost({ post, toc = false, config }: { post: BlogPost; toc?: boolean; config?: CompleteBlogPostItemsConfig | undefined }) {
+    const itemsConfig = this.resolveCompleteBlogPostItemsConfig(config);
+    const headerHtml = [
+      itemsConfig.title ? BlogPostFormat.headerTitle({ title: post.name }) : "",
+      itemsConfig.description ? BlogPostFormat.headerDescription({ description: post.seo?.description || "" }) : "",
+      itemsConfig.meta ? BlogPostFormat.headerMeta({ author: post.createdByUser.name, date: BlogUtils.formatDate(post.updatedAt), readTime: BlogUtils.calculateReadTime(post.htmlContent || "") }) : "",
+      itemsConfig.author ? BlogPostFormat.author({ author: post.createdByUser.name, organization: post.organization.name }) : "",
+      itemsConfig.divider ? BlogPostFormat.divider() : "",
+      itemsConfig.image ? BlogPostFormat.headerImage({ image: post.seo?.image || "", title: post.name }) : "",
     ].join("");
     return [
       `<div class="blogs-container"><header class="blog-post-header">${headerHtml}</header>`,
-      BlogPostFormat.content({ htmlContent: post.htmlContent || "" }),
-      BlogPostFormat.tags({ tags: post.tags || [] })+"</div>",
+      itemsConfig.content ? BlogPostFormat.content({ htmlContent: post.htmlContent || "" }) : "",
+      (itemsConfig.tags ? BlogPostFormat.tags({ tags: post.tags || [] }) : "") + "</div>",
     ].join("");
   }
 
