@@ -2,10 +2,28 @@ import { BLOG_CONFIG, type BlogsConfigType } from './blog_config.js';
 import type { BlogApiConfig, BlogPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse, DocsResponse, DocItem } from '../types/types.js';
 import BlogApiError from './BlogsError.js';
 
+/**
+ * Primary API client for fetching blog content from LeafPad.
+ *
+ * Handles HTTP requests with timeout, automatic retries (exponential backoff),
+ * and structured error reporting via `BlogApiError`.
+ *
+ * @example
+ * ```ts
+ * const blogs = new BlogsService('my-org-slug');
+ * const { posts } = await blogs.fetchPosts({ limit: 10 });
+ * const post = await blogs.fetchBlog('my-post-slug');
+ * const { items } = await blogs.fetchDocs();
+ * ```
+ */
 export class BlogsService {
 
   private config: Required<BlogApiConfig>
 
+  /**
+   * @param organizationSlug - Your organization's unique slug from LeafPad.
+   * @param blogsConfig - Optional overrides for default configuration values.
+   */
   constructor(organizationSlug: string, blogsConfig?: BlogsConfigType) {
     this.config = {
       organizationSlug,
@@ -116,6 +134,15 @@ export class BlogsService {
     return this.makeRequest<BlogApiResponse>(url);
   }
 
+  /**
+   * Fetch documentation posts structured as a hierarchical tree.
+   *
+   * Posts with a `parentId` are nested inside their parent's `children` array.
+   * All levels are sorted by the `position` field (string compare), falling back to `id`.
+   *
+   * @param options - Same options as fetchPosts (excluding `docs`, which is forced to `true`)
+   * @returns Hierarchical `DocItem[]` tree suitable for sidebar rendering
+   */
   async fetchDocs(options: FetchPostsOptions = {}): Promise<DocsResponse> {
     const blogsResponse = await this.fetchItems({...options, docs: true });
 
@@ -175,12 +202,29 @@ export class BlogsService {
   }
 
   /**
-   * Fetch multiple blog posts with pagination and filtering
+   * Fetch a paginated list of published blog posts.
+   *
+   * @param options.page - Page number (default: 1)
+   * @param options.limit - Posts per page (default: config.defaultLimit)
+   * @param options.includeHtml - Include pre-rendered HTML content (default: true)
+   * @param options.md - Include raw Markdown content (default: false)
+   * @param options.tags - Filter by tag names
+   * @param options.search - Full-text search query
+   * @returns posts[], pagination metadata, and organization info
    */
   async fetchPosts(options: FetchPostsOptions = {}): Promise<BlogApiResponse> {
     return this.fetchItems(options);
   }
 
+  /**
+   * Fetch a single blog post by its URL slug.
+   *
+   * @param slug - The post's URL slug (e.g. 'getting-started')
+   * @param options.includeHtml - Include pre-rendered HTML content (default: true)
+   * @param options.md - Include raw Markdown content (default: false)
+   * @returns The `BlogPost` object, or `null` if not found (404)
+   * @throws {BlogApiError} On network errors, timeouts, or non-404 HTTP errors
+   */
   async fetchBlog(slug: string, options: FetchPostOptions = {}): Promise<BlogPost | null> {
     const { includeHtml = true } = options;
 

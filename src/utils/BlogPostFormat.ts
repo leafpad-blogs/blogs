@@ -52,6 +52,24 @@ const DEFAULT_COMPLETE_BLOG_POST_ITEMS_CONFIG: Required<CompleteBlogPostItemsCon
   tags: true,
 };
 
+/**
+ * Static HTML rendering utilities for LeafPad blog content.
+ *
+ * All methods return plain HTML strings ready to be injected via `innerHTML`.
+ * Import the bundled stylesheet to apply default styles:
+ * ```ts
+ * import '@leafpad/blogs/src/styles/style.css';
+ * ```
+ *
+ * @example
+ * ```ts
+ * // Full post with sidebar TOC
+ * const html = BlogPostFormat.blogPost({ post, toc: true });
+ *
+ * // Cards listing
+ * const html = BlogPostFormat.blogCards({ posts, urlPrefix: '/blog' });
+ * ```
+ */
 export class BlogPostFormat {
   private static resolveCompleteBlogPostItemsConfig(config?: CompleteBlogPostItemsConfig): Required<CompleteBlogPostItemsConfig> {
     return {
@@ -60,6 +78,10 @@ export class BlogPostFormat {
     };
   }
 
+  /**
+   * Render a complete post header: image, title, description, tags, and meta.
+   * Use individual `header*` methods for granular control.
+   */
   static header({ title, description, image, tags, author, date, readTime }: BlogPostHeaderProps) {
     return `
       <header class="blog-post-header">
@@ -72,24 +94,29 @@ export class BlogPostFormat {
     `;
   }
 
+  /** Render the post hero `<img>`, or empty string if no image provided. */
   static headerImage({ image, title }: { image: string | undefined; title: string }) {
     return image ? `<img src='${image}' alt='${title}' class="blog-post-header-image" />` : "";
   }
 
+  /** Render an `<h1>` title with a slugified `id` attribute for anchor linking. */
   static headerTitle({ title }: { title: string }) {
     return `<h1 class="blog-post-title" id="${BlogUtils.slugify(title)}">${title}</h1>`;
   }
 
+  /** Render the SEO description as a `<p>`, or empty string if not provided. */
   static headerDescription({ description }: { description: string | undefined }) {
     return description ? `<p class="blog-post-description">${description}</p>` : "";
   }
 
+  /** Render inline tag badge `<span>` elements, or empty string if no tags. */
   static headerTags({ tags }: { tags: BlogTag[] | undefined }) {
     let tagsArr = Array.isArray(tags) ? tags : [];
     if (!tagsArr.length) return "";
     return `<div class="blog-post-tags">${tagsArr.map(tag => `<span class="blog-post-tag">${tag.name}</span>`).join("")}</div>`;
   }
 
+  /** Render the post meta row with calendar and clock SVG icons for date and read time. */
   static headerMeta({ author, date, readTime }: { author: string; date: string; readTime: string }) {
     return `<div class="blog-post-meta">
       <span class="blog-post-date">
@@ -103,6 +130,7 @@ export class BlogPostFormat {
     </div>`;
   }
 
+  /** Render the post HTML body wrapped in `<section class="blog-post-content">`. */
   static content({ htmlContent }: BlogPostContentProps) {
     return `
       <section class="blog-post-content">
@@ -111,6 +139,7 @@ export class BlogPostFormat {
     `;
   }
 
+  /** Render a tags section with a "Tags" heading. Returns empty string if no tags. */
   static tags({ tags }: BlogPostTagsProps) {
     let tagsArr = Array.isArray(tags) ? tags : [];
     if (!tagsArr.length) return "";
@@ -124,6 +153,7 @@ export class BlogPostFormat {
     `;
   }
 
+  /** Render the author avatar (initials) with name and organization. */
   static author({ author, organization }: BlogPostAuthorProps) {
     return `<div class="blog-post-author-section">
       <div class="blog-post-author-avatar">
@@ -138,20 +168,32 @@ export class BlogPostFormat {
     </div>`
   }
 
+  /** Render a compact date + read time display (no icons). */
   static meta({ date, readTime }: BlogPostMetaProps) {
     return `<div class="blog-post-meta-section"><span class="blog-post-date">${date}</span><span class="blog-post-readtime">${readTime}</span></div>`;
   }
 
+  /** Render an `<hr class="blog-post-divider">` separator. */
   static divider() {
     return '<hr class="blog-post-divider" />';
   }
 
+  /**
+   * Render multiple blog posts as a grid of cards.
+   * @param posts - Array of BlogPost objects
+   * @param urlPrefix - URL prefix for card links (default: '/blogs')
+   */
   static blogCards({ posts, urlPrefix = "/blogs" }: { posts: BlogPost[]; urlPrefix?: string }) {
     return `<div class="blog-cards-container">
       ${posts.map(post => this.blogCard({ post, urlPrefix })).join("")}
     </div>`;
   }
 
+  /**
+   * Render a single blog post as a card with image, title, excerpt, meta, and a read-more link.
+   * @param post - The BlogPost to render
+   * @param urlPrefix - URL prefix for the read-more link (default: '/blogs')
+   */
   static blogCard({post, urlPrefix = "/blogs"}: {post: BlogPost, urlPrefix?: string}) {
     return `<div class="blog-card">
         <div class="image-container"> 
@@ -165,6 +207,11 @@ export class BlogPostFormat {
         </div>`
   }
 
+  /**
+   * Render a full blog post with an adjacent `<aside>` table of contents panel.
+   * The aside has `id="toc"` — pass this id to `attachObserverToTOCLinks` client-side
+   * to highlight the active heading as the user scrolls.
+   */
   static blogPostWithToc({ post, config }: { post: BlogPost; config?: CompleteBlogPostItemsConfig | undefined }) {
     const htmlContent = this.completeBlogPost({ post, config });
     const tocHtml = this.toc(post.tocItems);
@@ -178,6 +225,12 @@ export class BlogPostFormat {
     </div>`;
   }
 
+  /**
+   * Render a complete blog post, optionally including a sidebar TOC.
+   * @param post - The BlogPost to render
+   * @param toc - If true, wraps output in a flex layout with an aside TOC (default: false)
+   * @param config - Control which sections are included (all default to true)
+   */
   static blogPost({ post, toc = false, config }: { post: BlogPost; toc?: boolean; config?: CompleteBlogPostItemsConfig | undefined }) {
     if (toc) {
       return this.blogPostWithToc({ post, config });
@@ -186,6 +239,11 @@ export class BlogPostFormat {
     }
   }
 
+  /**
+   * Render a full blog post inside `.blogs-container`.
+   * Sections are controlled by `config` (all enabled by default).
+   * Order: title → description → meta → author → divider → image → content → tags.
+   */
   static completeBlogPost({ post, toc = false, config }: { post: BlogPost; toc?: boolean; config?: CompleteBlogPostItemsConfig | undefined }) {
     const itemsConfig = this.resolveCompleteBlogPostItemsConfig(config);
     const headerHtml = [
@@ -203,6 +261,7 @@ export class BlogPostFormat {
     ].join("");
   }
 
+  /** Render a table of contents as anchor links from the post's `tocItems` array. */
   static toc(tocItems: { level: number; text: string; id: string }[]) {
     return renderTOCHTML(tocItems)
   }

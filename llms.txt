@@ -1,0 +1,412 @@
+# @leafpad/blogs — LLM Reference
+
+> Package: @leafpad/blogs  
+> Version: 0.3.1  
+> Purpose: TypeScript SDK for fetching and rendering LeafPad blog posts in any JavaScript application.  
+> Source: https://leafpad.io  
+> License: ISC
+
+## Overview
+
+`@leafpad/blogs` lets you integrate LeafPad-managed blog content into any web project. It provides:
+- An API client (`BlogsService`) for fetching posts and docs from LeafPad's public REST API
+- HTML rendering utilities (`BlogPostFormat`) that produce ready-to-use HTML strings
+- Content helpers (`BlogUtils`) for read time, date formatting, text extraction, and slugification
+- TOC utilities (`renderTOCHTML`, `attachObserverToTOCLinks`) for table-of-contents generation and DOM observation
+- A pre-built stylesheet bundled at `src/styles/style.css`
+
+## Installation
+
+```
+npm install @leafpad/blogs
+```
+
+## Exports (index.ts)
+
+```ts
+export { BlogsService } from './src/core/blogs.js'
+export { BLOG_CONFIG, type BlogsConfigType } from './src/core/blog_config.js'
+export * from './src/types/types.js'
+export { BlogPostFormat } from './src/utils/BlogPostFormat.js'
+export { default as BlogUtils } from './src/utils/BlogUtils.js'
+export { default as BlogApiError } from './src/core/BlogsError.js'
+export { attachObserverToTOCLinks, renderTOCHTML, type TOCOptions } from './src/utils/createToc.js'
+```
+
+---
+
+## Module: src/core/blogs.ts
+
+### Class: BlogsService
+
+Primary API client. Handles HTTP requests with timeout, retry, and exponential backoff.
+
+```ts
+new BlogsService(organizationSlug: string, config?: BlogsConfigType)
+```
+
+**Methods:**
+
+```ts
+fetchPosts(options?: FetchPostsOptions): Promise<BlogApiResponse>
+```
+Fetch paginated published blog posts. Options: page, limit, includeHtml, md, tags[], search, docs.
+
+```ts
+fetchBlog(slug: string, options?: FetchPostOptions): Promise<BlogPost | null>
+```
+Fetch a single post by URL slug. Returns null if 404. Throws BlogApiError on other failures.
+
+```ts
+fetchDocs(options?: FetchPostsOptions): Promise<DocsResponse>
+```
+Fetch documentation posts structured as a hierarchical tree (DocItem[]). Posts with parentId are nested under their parent. Sorted by `position` field at all levels.
+
+**Internals (private):**
+- `buildUrl(endpoint, params)` — Constructs the full API URL
+- `makeRequest<T>(url, options)` — Fetch wrapper with AbortController timeout, 3 retries, exponential backoff, BlogApiError on HTTP errors
+- `fetchItems(options)` — Builds URLSearchParams and calls makeRequest
+
+**Error behavior:**
+- 4xx responses → throws immediately, no retry
+- 5xx responses → retries up to `config.retries` times with 2^attempt second delay
+- Timeout → throws BlogApiError with code 'TIMEOUT'
+- All retries exhausted → throws BlogApiError with code 'MAX_RETRIES_EXCEEDED'
+
+---
+
+## Module: src/core/blog_config.ts
+
+```ts
+type BlogsConfigType = {
+  baseUrl?: string                        // default: 'https://leafpad.io'
+  apiPath?: string                        // default: '/api/public/v1/post'
+  defaultLimit?: number                   // default: 10
+  maxPostsForFiltering?: number           // default: 50
+  cacheRevalidateInterval?: number        // default: 300 (seconds)
+  staticParamsRevalidateInterval?: number // default: 3600 (seconds)
+  wordsPerMinute?: number                 // default: 200
+  timeout?: number                        // default: 10000 (ms)
+  retries?: number                        // default: 3
+}
+
+const BLOG_CONFIG: Required<BlogsConfigType> // all defaults as const
+```
+
+---
+
+## Module: src/core/BlogsError.ts
+
+```ts
+class BlogApiError extends Error {
+  name: 'BlogApiError'
+  status?: number     // HTTP status code, e.g. 404, 500
+  code?: string       // 'HTTP_404', 'HTTP_500', 'TIMEOUT', 'MAX_RETRIES_EXCEEDED'
+  constructor(message: string, status?: number, code?: string)
+}
+```
+
+---
+
+## Module: src/types/types.ts
+
+### Core Data Types
+
+```ts
+interface BlogPost {
+  id: number
+  name: string                  // Post title
+  slug: string                  // URL slug
+  createdAt: string             // ISO date string
+  updatedAt: string             // ISO date string
+  published: boolean
+  hasChildren: boolean          // Has child doc posts
+  parentId?: number             // Parent post id for docs hierarchy
+  position: string              // Sort key for docs ordering
+  content?: any                 // Raw BlockNote JSON content
+  htmlContent?: string          // Pre-rendered HTML (when includeHtml: true)
+  md?: string                   // Raw Markdown (when md: true)
+  textContent?: string          // Plain text version
+  tocItems: { level: number; text: string; id: string }[]  // Headings for TOC
+  seo?: BlogSEO
+  tags: BlogTag[]
+  organization: BlogOrganization
+  createdByUser: { name: string; image?: string }
+}
+
+interface BlogTag { id: number; name: string }
+
+interface BlogSEO {
+  title?: string
+  description?: string
+  image?: string
+  keywords?: string[]
+}
+
+interface BlogOrganization { id: string; name: string; slug: string }
+
+interface BlogPagination {
+  page: number
+  limit: number
+  totalCount: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
+interface BlogApiResponse {
+  posts: BlogPost[]
+  pagination: BlogPagination
+  organization: BlogOrganization
+}
+
+type DocItem = {
+  id: number
+  label: string
+  path?: string
+  position: string
+  children?: DocItem[]   // Nested children for docs tree
+}
+
+interface DocsResponse {
+  items: DocItem[]
+  pagination: BlogPagination
+  organization: BlogOrganization
+}
+
+interface FetchPostsOptions {
+  page?: number         // default: 1
+  limit?: number        // default: config.defaultLimit (10)
+  includeHtml?: boolean // default: true
+  md?: boolean          // default: false
+  tags?: string[]       // filter by tag names
+  search?: string       // full-text search
+  docs?: boolean        // fetch docs posts only
+}
+
+interface FetchPostOptions {
+  includeHtml?: boolean // default: true
+  md?: boolean          // default: false
+}
+```
+
+---
+
+## Module: src/utils/BlogPostFormat.ts
+
+All methods are **static** and return `string` (HTML).
+
+### Rendering Full Posts
+
+```ts
+BlogPostFormat.completeBlogPost({ post: BlogPost, toc?: boolean, config?: CompleteBlogPostItemsConfig }): string
+```
+Renders a full blog post inside `.blogs-container`. Sections controlled by `config`.
+
+```ts
+BlogPostFormat.blogPostWithToc({ post: BlogPost, config?: CompleteBlogPostItemsConfig }): string
+```
+Renders post + `<aside class="blog-post-toc" id="toc">` side panel.
+
+```ts
+BlogPostFormat.blogPost({ post: BlogPost, toc?: boolean, config?: CompleteBlogPostItemsConfig }): string
+```
+Renders with or without TOC based on `toc` flag.
+
+### CompleteBlogPostItemsConfig (all default true)
+
+```ts
+{
+  title?: boolean       // <h1> title
+  description?: boolean // SEO description paragraph
+  meta?: boolean        // date + read time
+  author?: boolean      // author avatar section
+  divider?: boolean     // <hr>
+  image?: boolean       // hero image
+  content?: boolean     // HTML content body
+  tags?: boolean        // tags section at bottom
+}
+```
+
+### Blog Card Listing
+
+```ts
+BlogPostFormat.blogCards({ posts: BlogPost[], urlPrefix?: string }): string
+// urlPrefix default: '/blogs'
+// Returns: <div class="blog-cards-container">...</div>
+
+BlogPostFormat.blogCard({ post: BlogPost, urlPrefix?: string }): string
+// Returns: <div class="blog-card">...</div>
+// Includes: image, title, excerpt, meta (author + date + readtime), read-more link
+```
+
+### Individual Sections
+
+```ts
+BlogPostFormat.header({ title, description, image, tags, author, date, readTime }): string
+BlogPostFormat.headerImage({ image, title }): string        // <img> or ''
+BlogPostFormat.headerTitle({ title }): string               // <h1 id="{slug}">
+BlogPostFormat.headerDescription({ description }): string  // <p> or ''
+BlogPostFormat.headerTags({ tags }): string                 // <div class="blog-post-tags">
+BlogPostFormat.headerMeta({ author, date, readTime }): string
+BlogPostFormat.content({ htmlContent }): string             // <section class="blog-post-content">
+BlogPostFormat.tags({ tags }): string                       // <section class="blog-post-tags-section">
+BlogPostFormat.author({ author, organization }): string     // author avatar + org
+BlogPostFormat.meta({ date, readTime }): string
+BlogPostFormat.divider(): string                            // <hr class="blog-post-divider">
+BlogPostFormat.toc(tocItems: {level, text, id}[]): string  // delegates to renderTOCHTML
+```
+
+---
+
+## Module: src/utils/BlogUtils.ts
+
+```ts
+class BlogUtils {
+  static calculateReadTime(content: string): string
+  // Strips HTML tags, counts words, divides by 100 wpm → "N min read"
+  // Returns '1 min read' for empty content
+
+  static formatDate(dateString: string, options?: Intl.DateTimeFormatOptions): string
+  // Formats via Intl.DateTimeFormat en-US, default: { year:'numeric', month:'long', day:'numeric' }
+  // Example: "January 15, 2024"
+
+  static extractTextFromHtml(html: string, maxLength?: number): string
+  // Strips all HTML tags. If maxLength set, truncates with '...'
+
+  static slugify(text: string): string
+  // Lowercase, remove special chars, spaces/underscores → hyphens, trim hyphens
+  // Example: "Hello World!" → "hello-world"
+
+  static attachTocListener(tocId?: string): { observer: IntersectionObserver; destroy: () => void }
+  // Wrapper for attachObserverToTOCLinks. Default tocId: 'toc'
+}
+```
+
+---
+
+## Module: src/utils/createToc.ts
+
+```ts
+function renderTOCHTML(
+  headingsData: { id: string; text: string; level: number }[],
+  opts?: { addNumbers?: boolean; linkClass?: string }
+): string
+```
+Pure function. Returns HTML anchor links for each heading. No DOM interaction.
+- Each link: `<a href="#id" class="toc-link" data-level="{n}" data-target-id="{id}" style="padding-left: {(level-1)*12+8}px;">`
+- `addNumbers` (default: false) — prepend numbering
+- `linkClass` (default: `'toc-link'`) — CSS class on `<a>` tags
+
+```ts
+function attachObserverToTOCLinks(
+  tocId: string,
+  options?: {
+    activeClass?: string
+    root?: Element | null
+    rootMargin?: string
+    threshold?: number | number[]
+  }
+): { observer: IntersectionObserver; destroy: () => void }
+```
+Browser-only (uses DOM). Finds TOC container by id. Observes linked heading elements. Adds `activeClass` (default: `'active'`) to the link of the heading currently in the viewport.
+- Default `rootMargin`: `'10% 0px -35% 0px'`
+- Returns `destroy()` to disconnect observer on cleanup
+- Safe no-op if container not found
+
+```ts
+type TOCOptions = {
+  contentSelector: string
+  tocSelector: string
+  headingSelector?: string
+  excludeHeadingLevels?: number[]
+  addNumbers?: boolean
+  activeClass?: string
+  linkClass?: string
+  scrollBehavior?: ScrollIntoViewOptions
+}
+```
+
+---
+
+## CSS Classes (from style.css)
+
+Classes generated by `BlogPostFormat` that you can style:
+
+| Class | Usage |
+|-------|-------|
+| `.blogs-container` | Outermost post wrapper |
+| `.blog-post-header` | Header section |
+| `.blog-post-header-image` | Hero `<img>` |
+| `.blog-post-title` | `<h1>` title |
+| `.blog-post-description` | Description `<p>` |
+| `.blog-post-tags` | Tags container |
+| `.blog-post-tag` | Single tag `<span>` |
+| `.blog-post-meta` | Header meta row |
+| `.blog-post-date` | Date `<span>` |
+| `.blog-post-readtime` | Read time `<span>` |
+| `.blog-post-content` | Main content `<section>` |
+| `.blog-post-tags-section` | Footer tags `<section>` |
+| `.blog-post-author-section` | Author container |
+| `.blog-post-author-avatar` | Initials avatar |
+| `.blog-post-author-name` | Author name `<div>` |
+| `.blog-post-author-organization` | Org name `<div>` |
+| `.blog-post-divider` | `<hr>` separator |
+| `.blog-post-with-toc` | Flex wrapper for post + TOC |
+| `.blog-post-toc` | `<aside>` TOC panel |
+| `.blog-post-toc-title` | TOC `<h3>` |
+| `.blog-cards-container` | Cards grid |
+| `.blog-card` | Individual post card |
+| `.toc-link` | TOC anchor links |
+| `.active` | Active TOC link (set by observer) |
+
+---
+
+## Usage Patterns
+
+### Pattern 1: Blog listing page (SSR)
+
+```ts
+const blogs = new BlogsService('my-org');
+const { posts } = await blogs.fetchPosts({ limit: 12 });
+const html = BlogPostFormat.blogCards({ posts, urlPrefix: '/blog' });
+```
+
+### Pattern 2: Single post page with TOC (SSR)
+
+```ts
+const post = await blogs.fetchBlog(slug, { includeHtml: true });
+const html = BlogPostFormat.blogPost({ post, toc: true });
+// Client-side: attachObserverToTOCLinks('toc')
+```
+
+### Pattern 3: Docs sidebar tree
+
+```ts
+const { items } = await blogs.fetchDocs();
+// items is DocItem[] with nested .children[] already sorted by .position
+// Render as recursive sidebar nav
+```
+
+### Pattern 4: Static site generation (Next.js)
+
+```ts
+export async function generateStaticParams() {
+  const { posts } = await blogs.fetchPosts({ limit: 50 });
+  return posts.map(p => ({ slug: p.slug }));
+}
+```
+
+### Pattern 5: Error handling
+
+```ts
+import BlogApiError from '@leafpad/blogs';
+try {
+  const post = await blogs.fetchBlog('slug');
+} catch (err) {
+  if (err instanceof BlogApiError) {
+    if (err.code === 'TIMEOUT') { /* retry */ }
+    if (err.status === 404) { /* not found */ }
+  }
+}
+```

@@ -1,3 +1,7 @@
+/**
+ * Configuration options for BlogsService.
+ * All fields are optional — omit to use defaults from BLOG_CONFIG.
+ */
 export type BlogsConfigType = {
   baseUrl?: string;
   apiPath?: string;
@@ -10,6 +14,10 @@ export type BlogsConfigType = {
   retries?: number;
 }
 
+/**
+ * Default configuration values used by BlogsService.
+ * Override individual fields by passing a BlogsConfigType to the constructor.
+ */
 export const BLOG_CONFIG = {
   baseUrl: "https://leafpad.io",
   apiPath: '/api/public/v1/post',

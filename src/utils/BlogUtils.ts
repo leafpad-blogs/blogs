@@ -1,6 +1,18 @@
 import { attachObserverToTOCLinks } from "./createToc.js";
 
 
+/**
+ * Static utility methods for blog content processing.
+ *
+ * @example
+ * ```ts
+ * import BlogUtils from '@leafpad/blogs';
+ *
+ * BlogUtils.calculateReadTime(post.htmlContent); // '4 min read'
+ * BlogUtils.formatDate(post.createdAt);          // 'January 15, 2024'
+ * BlogUtils.slugify('Hello World!');             // 'hello-world'
+ * ```
+ */
 export default class BlogUtils {
     /**
    * Utility: Calculate reading time for content
@@ -39,6 +51,11 @@ export default class BlogUtils {
     return text;
   }
 
+  /**
+   * Convert text to a URL-safe slug.
+   * Lowercases, removes special characters, replaces spaces/underscores with hyphens.
+   * @example `"Hello World!"` → `"hello-world"`
+   */
   static slugify(text: string): string {
     return text
     .toLowerCase()
@@ -48,6 +65,12 @@ export default class BlogUtils {
     .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
   }
 
+  /**
+   * Attach an IntersectionObserver to a TOC element by id.
+   * Call this client-side after the page has rendered.
+   * @param tocId - The id of the TOC container element (default: 'toc')
+   * @returns `{ observer, destroy }` — call `destroy()` on component unmount
+   */
   static attachTocListener(tocId: string = 'toc') {
     return attachObserverToTOCLinks(tocId);
   }
