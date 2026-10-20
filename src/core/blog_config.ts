@@ -12,6 +12,11 @@ export type BlogsConfigType = {
   wordsPerMinute?: number;
   timeout?: number;
   retries?: number;
+  /**
+   * When true, fetchBlog sends the browser to a redirected post's destination
+   * with `window.location.replace`. Does nothing on the server. Default: false.
+   */
+  handleRedirect?: boolean;
 }
 
 /**
@@ -27,5 +32,6 @@ export const BLOG_CONFIG = {
   staticParamsRevalidateInterval: 3600, // 1 hour
   wordsPerMinute: 200,
   timeout: 10000, // 10 seconds
-  retries: 3
+  retries: 3,
+  handleRedirect: false
 } as const;

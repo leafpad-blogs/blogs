@@ -86,6 +86,7 @@ const { posts, pagination, organization } = await blogs.fetchPosts({
 | `tags` | `string[]` | `[]` | Filter by tag names |
 | `search` | `string` | `''` | Full-text search query |
 | `docs` | `boolean` | `false` | Fetch documentation posts only |
+| `includeRedirects` | `boolean` | `false` | Also return posts that redirect (301) elsewhere, each with `redirect` set. Leave off for index pages: those URLs no longer serve content |
 
 **Returns:** `Promise<BlogApiResponse>` — `{ posts: BlogPost[], pagination: BlogPagination, organization: BlogOrganization }`
 
@@ -106,7 +107,9 @@ if (!post) console.log('Post not found');
 | `options.includeHtml` | `boolean` | `true` | Include pre-rendered HTML |
 | `options.md` | `boolean` | `false` | Include raw Markdown |
 
-**Returns:** `Promise<BlogPost | null>`
+**Returns:** `Promise<BlogPost | RedirectedPost | null>`
+
+If the post has moved, the result carries a `redirect` object (see [Redirects (301)](#redirects-301)). An unpublished post that redirects comes back as a `RedirectedPost`: only `id`, `name`, `slug`, `published: false` and `redirect`, never its content. Use `BlogUtils.hasRedirect(post)` to handle both and narrow the rest to `BlogPost`.
 
 #### `fetchDocs(options?)`
 
@@ -201,6 +204,7 @@ import BlogUtils from '@leafpad/blogs';
 | `extractTextFromHtml` | `(html: string, maxLength?: number) => string` | Strips tags, optionally truncates |
 | `slugify` | `(text: string) => string` | Converts text to `url-safe-slug` |
 | `attachTocListener` | `(tocId?: string) => { observer, destroy }` | Attaches scroll observer to TOC |
+| `hasRedirect` | `(post) => post is ... & { redirect: PostRedirect }` | Whether a post has moved (301). Narrows `fetchBlog`'s result to `BlogPost` once handled |
 
 ---
 
@@ -264,6 +268,95 @@ try {
 
 ---
 
+## Redirects (301)
+
+A post can be redirected permanently to another post of the same site from LeafPad. **LeafPad does not perform the redirect, and by default neither does this package.** The API reports it on the post, and your site should answer the old URL with a 301.
+
+A redirected post carries a `redirect` object:
+
+```ts
+interface PostRedirect {
+  type: 301;
+  destinationPostId: number;
+  destinationSlug: string;        // 'guides/new-page'
+  destinationPath: string;        // '/blogs/guides/new-page' (uses your basePath setting)
+  destinationUrl: string | null;  // 'https://example.com/blogs/guides/new-page', null when no site URL is set
+}
+```
+
+- `fetchBlog(slug)` returns the post with `redirect` set. If the post is also unpublished, it returns a `RedirectedPost` (no content).
+- `fetchPosts()` and `fetchDocs()` leave redirected posts out, so listings, sitemaps and `generateStaticParams` stop linking to them. Pass `includeRedirects: true` to get them back, each with `redirect` set.
+- `BlogUtils.hasRedirect(post)` tells you whether a post has moved and narrows the type.
+
+### Updating an existing integration
+
+Upgrade the package, then add one check wherever you call `fetchBlog`, before rendering:
+
+```bash
+npm install @leafpad/blogs@latest
+```
+
+**Next.js (App Router, server component).** Redirect with `permanentRedirect`, which sends a 308 (the method-preserving equivalent of 301) and is treated as permanent by search engines:
+
+```ts
+import { notFound, permanentRedirect } from 'next/navigation';
+import { BlogsService, BlogPostFormat, BlogUtils } from '@leafpad/blogs';
+
+const blogs = new BlogsService(process.env.LEAFPAD_ORG_SLUG!);
+
+export default async function BlogPage({ params }: { params: Promise<{ slug: string[] }> }) {
+  const { slug } = await params;
+  const post = await blogs.fetchBlog(slug.join('/'), { includeHtml: true });
+  if (!post) notFound();
+  if (BlogUtils.hasRedirect(post)) permanentRedirect(post.redirect.destinationPath);
+
+  // From here on `post` is a BlogPost
+  const html = BlogPostFormat.blogPost({ post, toc: true });
+  return <article dangerouslySetInnerHTML={{ __html: html }} />;
+}
+```
+
+Do the same in `generateMetadata` (or let it fall through, since the page redirects before rendering).
+
+**Next.js (Pages Router).** Return a permanent redirect from `getServerSideProps` / `getStaticProps`:
+
+```ts
+const post = await blogs.fetchBlog(slug);
+if (!post) return { notFound: true };
+if (BlogUtils.hasRedirect(post)) {
+  return { redirect: { destination: post.redirect.destinationPath, permanent: true } };
+}
+```
+
+**Express / Node.** Answer with a real 301:
+
+```ts
+app.get('/blogs/*', async (req, res) => {
+  const post = await blogs.fetchBlog(req.params[0]);
+  if (!post) return res.status(404).send('Not found');
+  if (BlogUtils.hasRedirect(post)) return res.redirect(301, post.redirect.destinationPath);
+  res.send(BlogPostFormat.blogPost({ post, toc: true }));
+});
+```
+
+**Static sites.** A static host cannot answer with a 301 from the page itself. Fetch with `includeRedirects: true` at build time and write each `{ from: '/blogs/' + post.slug, to: post.redirect.destinationPath }` into your host's redirect rules (`_redirects`, `vercel.json`, `next.config.js` `redirects()`, ...).
+
+Use `destinationUrl` instead of `destinationPath` when the blog is served from a different origin than the page doing the redirect.
+
+### Letting the package redirect in the browser (`handleRedirect`)
+
+For client-rendered apps (SPA, `'use client'` components) you can let the package redirect for you. Turn on `handleRedirect` and `fetchBlog` calls `window.location.replace(post.redirect.destinationPath)` when the post has moved. `replace` swaps the old URL out of the browser history, so the back button does not return to the moved page.
+
+```ts
+const blogs = new BlogsService('my-org', { handleRedirect: true });
+```
+
+- **Off by default.** Without it, nothing navigates and you handle `redirect` yourself.
+- **Browser only.** On the server (no `window`) it does nothing, so server rendering still needs the check above. A client-side redirect is not a 301 to search engines; prefer a server redirect where you have one.
+- `fetchBlog` still returns the post, so guard your render with `BlogUtils.hasRedirect(post)` to avoid flashing old content while the browser navigates.
+
+---
+
 ## Configuration
 
 Override defaults by passing a `BlogsConfigType` object to the constructor:
@@ -279,6 +372,7 @@ const blogs = new BlogsService('my-org', {
   timeout: 10000,                      // ms per request
   retries: 3,                          // Retry attempts on 5xx
   wordsPerMinute: 200,                 // For read time calculation
+  handleRedirect: false,               // Redirect the browser when a post has moved (301)
 });
 ```
 
@@ -295,6 +389,7 @@ const blogs = new BlogsService('my-org', {
 | `wordsPerMinute` | `200` | Reading speed for time calculation |
 | `timeout` | `10000` | Request timeout in ms |
 | `retries` | `3` | Max retry attempts |
+| `handleRedirect` | `false` | In the browser, follow a post's 301 with `window.location.replace`. See [Redirects (301)](#redirects-301) |
 
 ---
 
@@ -335,7 +430,8 @@ All HTML rendered by `BlogPostFormat` uses these classes for styling:
 
 ```ts
 // app/blogs/page.tsx
-import { BlogsService, BlogPostFormat } from '@leafpad/blogs';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { BlogsService, BlogPostFormat, BlogUtils } from '@leafpad/blogs';
 
 const blogs = new BlogsService(process.env.LEAFPAD_ORG_SLUG!);
 
@@ -349,6 +445,7 @@ export default async function BlogsPage() {
 export default async function BlogPage({ params }: { params: { slug: string } }) {
   const post = await blogs.fetchBlog(params.slug, { includeHtml: true });
   if (!post) notFound();
+  if (BlogUtils.hasRedirect(post)) permanentRedirect(post.redirect.destinationPath);
 
   const html = BlogPostFormat.blogPost({ post, toc: true });
   return <article dangerouslySetInnerHTML={{ __html: html }} />;

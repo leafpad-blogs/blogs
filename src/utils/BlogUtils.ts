@@ -1,4 +1,5 @@
 import { attachObserverToTOCLinks } from "./createToc.js";
+import type { PostRedirect } from "../types/types.js";
 
 
 /**
@@ -73,5 +74,17 @@ export default class BlogUtils {
    */
   static attachTocListener(tocId: string = 'toc') {
     return attachObserverToTOCLinks(tocId);
+  }
+
+  /**
+   * Whether a post has moved (permanent 301 redirect).
+   * Narrows `fetchBlog`'s result: once redirected posts are handled, the rest is a `BlogPost`.
+   * @example
+   * ```ts
+   * if (BlogUtils.hasRedirect(post)) permanentRedirect(post.redirect.destinationPath);
+   * ```
+   */
+  static hasRedirect<T extends { redirect?: PostRedirect }>(post: T): post is T & { redirect: PostRedirect } {
+    return post.redirect?.type === 301;
   }
 }
