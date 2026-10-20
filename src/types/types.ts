@@ -41,6 +41,9 @@ export interface BlogApiConfig {
   // Request settings
   timeout?: number;
   retries?: number;
+
+  // Redirect settings
+  handleRedirect?: boolean;
 }
 
 /** A tag associated with a blog post. */
@@ -102,6 +105,35 @@ export interface DocsResponse {
 }
 
 /**
+ * A permanent (301) redirect reported by the LeafPad API on a post that has moved.
+ * LeafPad does not redirect: the site serving the page should answer the old URL
+ * with a 301 to `destinationPath` (or `destinationUrl`).
+ */
+export interface PostRedirect {
+  /** Always 301: the page has moved for good. */
+  type: 301;
+  destinationPostId: number;
+  /** The destination's slug as stored, e.g. `guides/new-page`. */
+  destinationSlug: string;
+  /** Path on the site, e.g. `/blogs/guides/new-page`. */
+  destinationPath: string;
+  /** Absolute URL, or null when the organization has no site URL set. */
+  destinationUrl: string | null;
+}
+
+/**
+ * Returned by fetchBlog for an unpublished post that redirects.
+ * Only where the post went is returned, never its content.
+ */
+export interface RedirectedPost {
+  id: number;
+  name: string;
+  slug: string;
+  published: false;
+  redirect: PostRedirect;
+}
+
+/**
  * Options for fetching a list of posts via fetchPosts or fetchDocs.
  * All fields are optional — omit to use defaults.
  */
@@ -113,6 +145,8 @@ export interface FetchPostsOptions {
   tags?: string[];
   search?: string;
   docs?: boolean;
+  /** Include redirected posts (each carrying `redirect`). Default: false. */
+  includeRedirects?: boolean;
 }
 
 /**
@@ -142,6 +176,8 @@ export interface BlogPost {
     name: string;
     image?: string;
   }
+  /** Present only when the post has moved. See `PostRedirect`. */
+  redirect?: PostRedirect;
 }
 
 /** Options for fetching a single post via fetchBlog. */

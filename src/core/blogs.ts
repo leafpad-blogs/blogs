@@ -1,5 +1,5 @@
 import { BLOG_CONFIG, type BlogsConfigType } from './blog_config.js';
-import type { BlogApiConfig, BlogPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse, DocsResponse, DocItem } from '../types/types.js';
+import type { BlogApiConfig, BlogPost, RedirectedPost, FetchPostOptions, FetchPostsOptions, BlogApiResponse, DocsResponse, DocItem } from '../types/types.js';
 import BlogApiError from './BlogsError.js';
 
 /**
@@ -103,7 +103,8 @@ export class BlogsService {
       tags = [],
       search = '',
       docs = false,
-      md = false
+      md = false,
+      includeRedirects = false
     } = options;
 
     const params = new URLSearchParams();
@@ -128,6 +129,10 @@ export class BlogsService {
 
     if (docs) {
       params.append('docs', Boolean(docs).toString());
+    }
+
+    if (includeRedirects) {
+      params.append('includeRedirects', 'true');
     }
 
     const url = this.buildUrl('', params);
@@ -210,6 +215,7 @@ export class BlogsService {
    * @param options.md - Include raw Markdown content (default: false)
    * @param options.tags - Filter by tag names
    * @param options.search - Full-text search query
+   * @param options.includeRedirects - Include redirected posts, each carrying `redirect` (default: false)
    * @returns posts[], pagination metadata, and organization info
    */
   async fetchPosts(options: FetchPostsOptions = {}): Promise<BlogApiResponse> {
@@ -222,10 +228,13 @@ export class BlogsService {
    * @param slug - The post's URL slug (e.g. 'getting-started')
    * @param options.includeHtml - Include pre-rendered HTML content (default: true)
    * @param options.md - Include raw Markdown content (default: false)
-   * @returns The `BlogPost` object, or `null` if not found (404)
+   * @returns The `BlogPost` object, or `null` if not found (404).
+   *   A post that has moved carries `redirect` (a 301 to `redirect.destinationPath`).
+   *   An unpublished post that redirects comes back as a `RedirectedPost`, with no content.
+   *   With `handleRedirect: true`, the browser is sent to the destination.
    * @throws {BlogApiError} On network errors, timeouts, or non-404 HTTP errors
    */
-  async fetchBlog(slug: string, options: FetchPostOptions = {}): Promise<BlogPost | null> {
+  async fetchBlog(slug: string, options: FetchPostOptions = {}): Promise<BlogPost | RedirectedPost | null> {
     const { includeHtml = true } = options;
 
     const params = new URLSearchParams();
@@ -239,11 +248,24 @@ export class BlogsService {
 
     try {
       const url = this.buildUrl(slug, params);
-      const post = await this.makeRequest<BlogPost>(url);
+      const post = await this.makeRequest<BlogPost | RedirectedPost>(url);
+      if (post.redirect && this.config.handleRedirect) {
+        this.followRedirect(post.redirect.destinationPath);
+      }
       return post;
     } catch (error) {
       throw error;
     }
+  }
+
+  /**
+   * Send the browser to a redirected post's destination, replacing the old URL
+   * in history as a 301 would. Does nothing outside the browser.
+   */
+  private followRedirect(destinationPath: string) {
+    if (typeof window === 'undefined') return;
+    if (window.location.pathname === destinationPath) return;
+    window.location.replace(destinationPath);
   }
 
 }

@@ -50,12 +50,14 @@ new BlogsService(organizationSlug: string, config?: BlogsConfigType)
 ```ts
 fetchPosts(options?: FetchPostsOptions): Promise<BlogApiResponse>
 ```
-Fetch paginated published blog posts. Options: page, limit, includeHtml, md, tags[], search, docs.
+Fetch paginated published blog posts. Options: page, limit, includeHtml, md, tags[], search, docs, includeRedirects. Redirected posts are left out unless includeRedirects: true.
 
 ```ts
-fetchBlog(slug: string, options?: FetchPostOptions): Promise<BlogPost | null>
+fetchBlog(slug: string, options?: FetchPostOptions): Promise<BlogPost | RedirectedPost | null>
 ```
 Fetch a single post by URL slug. Returns null if 404. Throws BlogApiError on other failures.
+A moved post carries `redirect: PostRedirect`. An unpublished post that redirects returns a `RedirectedPost` (id, name, slug, published: false, redirect; no content).
+When `config.handleRedirect` is true and running in a browser, calls `window.location.replace(post.redirect.destinationPath)`. Never redirects on the server or when the flag is off (default).
 
 ```ts
 fetchDocs(options?: FetchPostsOptions): Promise<DocsResponse>
@@ -88,6 +90,7 @@ type BlogsConfigType = {
   wordsPerMinute?: number                 // default: 200
   timeout?: number                        // default: 10000 (ms)
   retries?: number                        // default: 3
+  handleRedirect?: boolean                // default: false. Browser only: follow a post's 301 with window.location.replace
 }
 
 const BLOG_CONFIG: Required<BlogsConfigType> // all defaults as const
@@ -132,6 +135,23 @@ interface BlogPost {
   tags: BlogTag[]
   organization: BlogOrganization
   createdByUser: { name: string; image?: string }
+  redirect?: PostRedirect       // Present only when the post has moved (301)
+}
+
+interface PostRedirect {
+  type: 301
+  destinationPostId: number
+  destinationSlug: string       // e.g. 'guides/new-page'
+  destinationPath: string       // e.g. '/blogs/guides/new-page' (org basePath + slug)
+  destinationUrl: string | null // absolute URL, null when the org has no site URL
+}
+
+interface RedirectedPost {      // fetchBlog result for an unpublished post that redirects
+  id: number
+  name: string
+  slug: string
+  published: false
+  redirect: PostRedirect
 }
 
 interface BlogTag { id: number; name: string }
@@ -182,6 +202,7 @@ interface FetchPostsOptions {
   tags?: string[]       // filter by tag names
   search?: string       // full-text search
   docs?: boolean        // fetch docs posts only
+  includeRedirects?: boolean // default: false. Include redirected posts, each with `redirect`
 }
 
 interface FetchPostOptions {
@@ -280,6 +301,9 @@ class BlogUtils {
 
   static attachTocListener(tocId?: string): { observer: IntersectionObserver; destroy: () => void }
   // Wrapper for attachObserverToTOCLinks. Default tocId: 'toc'
+
+  static hasRedirect<T extends { redirect?: PostRedirect }>(post: T): post is T & { redirect: PostRedirect }
+  // True when the post has moved (301). Narrows fetchBlog's BlogPost | RedirectedPost to BlogPost once handled
 }
 ```
 
@@ -397,7 +421,30 @@ export async function generateStaticParams() {
 }
 ```
 
-### Pattern 5: Error handling
+### Pattern 5: Redirects (301)
+
+LeafPad never redirects; the API reports `redirect` on a moved post and the site must answer the old URL with a 301.
+
+```ts
+// Next.js App Router (server)
+import { notFound, permanentRedirect } from 'next/navigation';
+const post = await blogs.fetchBlog(slug);
+if (!post) notFound();
+if (BlogUtils.hasRedirect(post)) permanentRedirect(post.redirect.destinationPath);
+// post is now BlogPost
+
+// Express
+if (BlogUtils.hasRedirect(post)) return res.redirect(301, post.redirect.destinationPath);
+
+// Client-side only: let the package redirect via window.location.replace
+const blogs = new BlogsService('my-org', { handleRedirect: true }); // default false
+
+// Static hosts: build redirect rules
+const { posts } = await blogs.fetchPosts({ includeRedirects: true, limit: 100 });
+const rules = posts.filter(BlogUtils.hasRedirect).map(p => ({ from: `/blogs/${p.slug}`, to: p.redirect.destinationPath }));
+```
+
+### Pattern 6: Error handling
 
 ```ts
 import BlogApiError from '@leafpad/blogs';
